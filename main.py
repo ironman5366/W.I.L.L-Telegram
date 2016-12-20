@@ -1,14 +1,9 @@
 #Builtin modules
 import logging
 import os
-import json
-import sys
 
 #Internal modules
 import interface
-import telegram
-
-#TODO: switch to a permanent sqlalchemy db
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -18,9 +13,10 @@ class main():
         '''Call starting functions'''
         #Bot token should be held in a file named token.txt
         if os.path.isfile("token.txt"):
-            token = open('token.text').read()
+            token = open('token.txt').read()
             log.info("Bot token is {0}".format(token))
             log.info("Starting the telegram interface")
+            #Start the telegram bot
             interface.initialize(token)
         else:
             log.error(

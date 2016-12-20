@@ -52,6 +52,7 @@ def error(bot, update, error):
 
 def parse(bot, update):
     pass
+
 def initialize(bot_token):
     updater = Updater(bot_token)
 
