@@ -14,3 +14,4 @@ def parse(command):
     tokens = nltk.word_tokenize(command)
     #Check for common lexical patterns
     #TODO: write a plugin parser
+    #TODO: have the plugins put in their own event hooks on initialize
