@@ -16,19 +16,19 @@ class main():
     '''Start W.I.L.L and determine data status'''
     def __init__(self):
         '''Call starting functions'''
-        #Check if the database is up
-        #TODO: change to sqlalchemy code
-        if os.path.isfile("will.json"):
-            f = json.load("will.json")
-            bot_token = f["bot_token"]
-            interface.initialize(bot_token)
+        #Bot token should be held in a file named token.txt
+        if os.path.isfile("token.txt"):
+            token = open('token.text').read()
+            log.info("Bot token is {0}".format(token))
+            log.info("Starting the telegram interface")
+            interface.initialize(token)
         else:
-            log.error("Cannot find data store")
-            sys.exit()
-
-
-
-
+            log.error(
+                '''
+                Couldn't find the file containing the api token.
+                Please create a file named token.txt in /usr/local/W.I.L.L-Telegram containing the token.
+                '''
+            )
 if __name__ == "__main__":
     log = logging.getLogger()
     log.info("Starting W.I.L.L")

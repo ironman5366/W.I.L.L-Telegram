@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 #Standalone setup script for W.I.L.L
 if ! dpkg -s python-pip; then
     echo "pip not installed, installing"
@@ -20,6 +21,16 @@ cd W.I.L.L-telegram
 echo "Installing required python modules"
 
 sudo pip install -r reuqirements.txt
+
+echo -n "Please enter your bot token:"
+
+read token
+
+touch token.txt
+
+echo token >> token.txt
+
+echo "Saved bot token"
 
 echo "Setting up W.I.L.L as service"
 

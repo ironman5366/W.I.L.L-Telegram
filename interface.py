@@ -1,14 +1,25 @@
 #Builtin imports
 import logging
 #External imports
-from telegram.ext import Updater, CommandHandler
+import dataset
+from telegram import (ReplyKeyboardMarkup, ReplyKeyboardRemove)
+from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters, Job)
+
 #Internal imports
 
 log = logging.getLogger()
 
 events = {}
 
-help_str = "TODO: write help_str"
+help_str = '''
+Commands:
+/help: Print this string
+/start: Start the bot and create a userdata table with your username
+/settings: Change user settings
+If not given a telegram command, W.I.L.L will yry to interperet your command as a personal assistant
+'''
+
+db = dataset.connect('sqlite://will.db')
 
 def help(bot, update):
     update.message.reply_text(help_str)
@@ -16,9 +27,26 @@ def help(bot, update):
 
 def start(bot,update):
     '''First run commands'''
-    #TODO: add database creation here
-    update.message.reply_text("Welcome to W.I.L.L!\n What's your name?")
-    #TODO: add conversation handlers
+    log.info("Setting up bot")
+    userdata = db['userdata']
+    admin = bot.getMe()
+    admin_username = admin.username
+    log.info("Admin user is {0}, admin username is {1}".format(
+        admin, admin_username
+    ))
+    username = update.from_user.username
+    first_name = update.from_user.first_name
+    user_is_admin = username == admin_username
+    log.info("User data is as follows: username is {0}, first_name is {1}, user_is_admin is {2}".format(
+        username,first_name,user_is_admin
+    ))
+    userdata.insert(dict(
+        first_name=update.from_user.first_name,
+        username=update.from_user.username,
+        admin=user_is_admin
+    ))
+
+
 def error(bot, update, error):
     log.warn('Update "%s" caused error "%s"' % (update, error))
 
