@@ -2,8 +2,8 @@
 import logging
 #External imports
 import dataset
-from telegram import (ReplyKeyboardMarkup, ReplyKeyboardRemove)
-from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters, Job)
+from telegram import (ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup)
+from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters, Job, CallbackQueryHandler)
 
 #Internal imports
 
@@ -22,23 +22,61 @@ If not given a telegram command, W.I.L.L will try to interpret your command as a
 db = dataset.connect('sqlite://will.db')
 
 def help(bot, update):
+    '''Print help message'''
     update.message.reply_text(help_str)
 
 def alarm(bot, job):
     """Function to send the alarm message"""
-    bot.sendMessage(job.context, text=)
-    #TODO: find out what's in job.context to send a custom message
+    alarm_text = job.context["alarm_text"]
+    chat_id = job.context["chat_id"]
+    keyboard = [[InlineKeyboardButton("Snooze", callback_data={"type":"snooze_1","job":job.context['job'],'snooze':True}),
+                 InlineKeyboardButton("Dismiss", callback_data={"type":"snooze_1","job":job.context['job'],'snooze':False})]]
+    snooze_inline = InlineKeyboardMarkup(keyboard)
+    bot.sendMessage(chat_id, text=alarm_text, reply_markup=snooze_inline)
 
 def set_job(bot, update, args, job_queue, chat_data, response_text, alarm_text):
     '''Adds a job to the job queue'''
     chat_id = update.message.chat_id
     #Time for the timer in seconds
     due = int(args[0])
-    job = Job(alarm, due, repeat=False, context=chat_id)
-    chat_data['job'] = job
+    #Put relevant alarm data in context and set the alarm
+    chat_data["chat_id"] = chat_id
     chat_data["alarm_text"] = alarm_text
+    job = Job(alarm, due, repeat=False, context=chat_data)
+    chat_data['job'] = job
     job_queue.put(job)
     update.message.reply_text(response_text)
+
+def button(bot, update, job_queue, chat_data):
+    '''Button response'''
+    query = update.callback_query
+    data = query.data
+    data_type = data["type"]
+    if data_type == "snooze_1":
+        snooze = data["snooze"]
+        if snooze:
+            keyboard = [[InlineKeyboardButton("5 minutes", callback_data={"type": "snooze_2", "job": data['job'],
+                                                                       'length': 300}),
+                         InlineKeyboardButton("15 minutes", callback_data={"type": "snooze_2", "job": data['job'],
+                                                                          'length': 900}),
+                         InlineKeyboardButton("1 hour", callback_data={"type": "snooze_2", "job": data['job'],
+                                                                          'length': 3600}),
+                         InlineKeyboardButton("6 hours", callback_data={"type": "snooze_2", "job": data['job'],
+                                                                          'length': 21600}),
+                         InlineKeyboardButton("1 day", callback_data={"type": "snooze_2", "job": data['job'],
+                                                                          'length': 86400})
+                         ]]
+            snooze_inline = InlineKeyboardMarkup(keyboard)
+            bot.sendMessage(update.messagechat_id, text="How long would you like to snooze?", reply_markup=snooze_inline)
+        else:
+            update.message.reply_text("Dismissed.")
+    elif data_type == "snooze_2":
+        due = data["length"]
+        job = Job(alarm, due, repeat=False, context=chat_data)
+        chat_data["job"] = job
+        job_queue.put(job)
+        update.message.reply_text("Snoozed")
+
 
 def start(bot,update):
     '''First run commands'''
@@ -62,14 +100,16 @@ def start(bot,update):
         admin=user_is_admin
     ))
 
-
 def error(bot, update, error):
+    '''Log an error'''
     log.warn('Update "%s" caused error "%s"' % (update, error))
 
 def parse(bot, update, args,job_queue, chat_data, response_text, alarm_text):
+    '''Function that calls parsing'''
     pass
 
 def initialize(bot_token):
+    '''Start the bot'''
     updater = Updater(bot_token)
 
     # Get the dispatcher to register handlers
@@ -79,12 +119,11 @@ def initialize(bot_token):
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(CommandHandler("help", help))
 
+    updater.dispatcher.add_handler(CallbackQueryHandler(button),pass_chat_data=True, pass_job_que=True)
     # on noncommand i.e message - echo the message on Telegram
     dp.add_handler(MessageHandler(
         Filters.text, parse, pass_args=True, pass_job_queue=True,pass_chat_data=True
     ))
-
-
     # log all errors
     dp.add_error_handler(error)
 

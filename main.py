@@ -7,6 +7,9 @@ import interface
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+#TODO: get wolframalpha stuff
+
 class main():
     '''Start W.I.L.L and determine data status'''
     def __init__(self):
