@@ -1,13 +1,14 @@
 #Builtin modules
 import logging
 import os
+import threading
 
 #Internal modules
 import interface
+import plugin_handler
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-
 #TODO: get wolframalpha stuff
 
 class main():
@@ -18,6 +19,8 @@ class main():
         if os.path.isfile("token.txt"):
             token = open('token.txt').read()
             log.info("Bot token is {0}".format(token))
+            log.info("Loading plugins")
+            plugin_handler.load('plugins')
             log.info("Starting the telegram interface")
             #Start the telegram bot
             interface.initialize(token)

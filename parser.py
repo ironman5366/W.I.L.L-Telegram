@@ -2,9 +2,7 @@
 import logging
 #External imports
 import nltk
-#Internal imports
-import API
-
+import zope.event
 log = logging.getLogger()
 
 def parse(command):
@@ -13,5 +11,12 @@ def parse(command):
     #Feed command into nltk
     tokens = nltk.word_tokenize(command)
     #Check for common lexical patterns
+    tagged = nltk.pos_tag(tokens)
+    #Start out by looking for recognized nouns
+    verbs = []
+    for i in tagged:
+        if i[1] == "VB":
+            verbs.append(i[0])
+    log.info("Found verbs {0}".format(verbs))
     #TODO: write a plugin parser
     #TODO: have the plugins put in their own event hooks on initialize
