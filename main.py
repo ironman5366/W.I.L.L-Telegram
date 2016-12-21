@@ -1,7 +1,7 @@
 #Builtin modules
 import logging
 import os
-import threading
+import sys
 
 #Internal modules
 import interface
@@ -11,6 +11,10 @@ import parser
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 #TODO: get wolframalpha stuff
+
+def shutdown():
+    log.info("Shutting down W.I.L.L")
+    sys.exit()
 
 class main():
     '''Start W.I.L.L and determine data status'''

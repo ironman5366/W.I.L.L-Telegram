@@ -11,7 +11,7 @@ def search_wolfam():
     pass
     #TODO: use dataset to search the db for the wolfram api key
 
-@subscribe({"required":["wolfram"]})
+@subscribe({"required":{"api_keys":["wolfram"]}})
 def main(query):
     '''Start the search'''
     log.info("In main search function with query {0}".format(query))

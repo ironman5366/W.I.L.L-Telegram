@@ -38,7 +38,7 @@ def parse(bot, update, args,job_queue, chat_data):
     #Use synactic dependencies to look at the words
     for possible_subject in doc:
         if possible_subject.dep == nsubj and possible_subject.head.pos == VERB:
-            verbs.add(possible_subject.head)
+            verbs.add(possible_subject.head.lemma_.lower())
     log.info("Finished parsing dependencies, parsing ents")
     ents = {}
     #Use spacy's ent recognition
@@ -49,6 +49,7 @@ def parse(bot, update, args,job_queue, chat_data):
     log.info("Finished parsing ents")
     command_data = {
         "command": command,
+        "bot": bot,
         "update": update,
         "args": args,
         "job_queue": job_queue,

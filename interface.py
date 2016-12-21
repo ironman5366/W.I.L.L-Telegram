@@ -3,11 +3,12 @@ import logging
 #External imports
 import dataset
 from telegram import (ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup)
-from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters, Job, CallbackQueryHandler)
+from telegram.ext import (
+    Updater, CommandHandler, MessageHandler, Filters, Job, CallbackQueryHandler, RegexHandler, ConversationHandler
+)
 
 #Internal imports
 import parser
-import plugin_handler
 
 log = logging.getLogger()
 
@@ -25,11 +26,15 @@ If not given a telegram command, W.I.L.L will try to interpret your command as a
 
 db = dataset.connect('sqlite://will.db')
 
-#TODO: write settings function
+WOLFRAM_KEY = range(1)
 
 def help(bot, update):
     '''Print help message'''
     update.message.reply_text(help_str)
+
+def send_message(bot, chat_id, message_text):
+    '''Send a text message'''
+    bot.sendMessage(chat_id, message_text)
 
 def alarm(bot, job):
     """Function to send the alarm message"""
@@ -83,7 +88,6 @@ def button(bot, update, job_queue, chat_data):
         job_queue.put(job)
         update.message.reply_text("Snoozed")
 
-
 def start(bot,update):
     '''First run commands'''
     log.info("Setting up bot")
@@ -103,11 +107,28 @@ def start(bot,update):
         username=update.from_user.username,
         admin=user_is_admin
     ))
+    update.message.reply_text(
+        "In order to use the search functions, you need a wolframalpha api key. Please paste one in:"
+    )
+
+def accept_wolfram_key(bot, update):
+    '''Store wolfram key given in setup'''
+    #If I want to add more steps to setup, add them here
+    username = update.from_user.username
+    userdata = db['userdata']
+    user = userdata.find_one(username=username)
+    if "api_keys" in user.columns:
+        user["api_keys"].update({
+            "wolfram": update.message
+        })
 
 def error(bot, update, error):
     '''Log an error'''
     log.warn('Update "%s" caused error "%s"' % (update, error))
 
+def cancel(bot, update):
+    '''Cancel startup conversation'''
+    update.message.reply_text("Cancelled.")
 
 def initialize(bot_token):
     '''Start the bot'''
@@ -115,7 +136,16 @@ def initialize(bot_token):
 
     # Get the dispatcher to register handlers
     dp = updater.dispatcher
+    #Use regex to match strings of text that look like wolfram keys (long alphanumeric strings)
+    conv_handler = ConversationHandler(
+        entry_points=[CommandHandler('start', start)],
 
+        states={
+            WOLFRAM_KEY: [RegexHandler('^[a-zA-Z0-9]{6,}$', accept_wolfram_key)]
+        },
+
+        fallbacks=[CommandHandler('cancel', cancel)]
+    )
     # on different commands - answer in Telegram
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(CommandHandler("help", help))

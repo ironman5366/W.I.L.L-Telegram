@@ -8,6 +8,11 @@ import threading
 #External imports
 import importlib
 from Queue import Queue
+import dataset
+
+#Internal imports
+import main
+import interface
 
 log = logging.getLogger()
 
@@ -17,24 +22,113 @@ plugin_subscriptions = []
 
 events_queue = Queue()
 
+db = dataset.connect('sqlite://will.db')
+
+user_table = db['userdata']
+
 class subscriptions():
     '''Manage plugin subscriptions and events'''
+    def check_requirements(self, plugin, event):
+        '''Check if the event meets the requirments that the event sets'''
+        if "requirements" not in plugin.keys():
+            return True
+        plugin_requirements = plugin["required"]
+        required_categories = plugin_requirements.keys()
+        #Try to find if the db table for that category exists
+        log.info("Finding db tables for categories {0}".format(required_categories))
+        requirements_found = {}
+        for category in required_categories:
+            #Check if user has column for this kind of data in their database
+            if category in user_table.columns:
+                log.debug("Found category {0} in database for user {1}".format(
+                    category, user_table["first_name"]
+                ))
+                found_category = user_table[category]
+                category_data_type = type(found_category)
+                if category_data_type == dict:
+                    requirements_found.update({
+                        category: found_category[
+                            plugin_requirements[category]
+                        ]
+                    })
+                else:
+                    if plugin_requirements[category]:
+                        if plugin_requirements[category] != user_table[category]:
+                            return False
+                    requirements_found.udpate({
+                        category: plugin_requirements[category]
+                    })
+            else:
+                log.error("Category {0} wasn't found for user {1}".format(
+                    category, user_table["first_name"]
+                ))
+        return requirements_found
+
+
+
     def subscriptions_thread(self):
         '''The seperate thread that monitors the events queue'''
         log.info("In subscriptions thread, starting loop")
         while True:
             time.sleep(0.1)
-            event = events_queue.get()
-            assert type(event) == dict
-            event_command = event["command"]
-            log.info("Processing event with command {0}".format(event_command))
-            event_type = event["type"]
-            if event_type == "shutdown":
-                log.info("Shutting down the subscriptions thread")
-                break
-            else:
-                event_text = event["text"]
-                log.info("Event text is {0}".format(event_text))
+            #If the queue is empty, pass
+            if not events_queue.empty():
+                event = events_queue.get()
+                assert type(event) == dict
+                event_command = event["command"]
+                username = event['update'].from_user.username
+                log.info("Processing event with command {0}, user {1}".format(
+                    event_command, username))
+                user_table = db.find_one(username=username)
+                if event_command == "shutdown":
+                    #If the thread tells to shut down, make sure the user is admin
+                    if user_table['admin']:
+                        log.info("Shutting down the subscriptions thread")
+                        main.shutdown()
+                        break
+                else:
+                    #Iterate through plugin descriptions and determine if they should be run
+                    found_plugin = None
+                    for plugin in plugin_subscriptions:
+                        log.debug("Parsing plugin {0}".format(plugin))
+                        required_check = self.check_requirements(plugin, event)
+                        if not required_check:
+                            continue
+                        if "required_data" in event.keys():
+                            event["required_data"] = required_check
+                        else:
+                            event.update({"required_data": required_check})
+                        if "command" in plugin.keys():
+                            #If the plugin calls for the exact command passed
+                            if plugin["command"].lower() == event_command.lower():
+                                log.info("Plugin {0} calls for exact command {1}, calling plugin".format(
+                                    plugin, event_command
+                                ))
+                                found_plugin = plugin
+                                break
+                            #If the plugin is correct, call it with all the data
+                        if "verbs" in plugin.keys():
+                            plugin_verbs = set(plugin["verbs"])
+                            verb_check = event['verbs'].issuperset(plugin_verbs)
+                            if verb_check:
+                                found_plugin = plugin
+                                break
+                    if not found_plugin:
+                        pass
+                        #TODO: specify search plugin
+                    try:
+                        log.info("Calling appropriate function")
+                        response = found_plugin["function"](event)
+                    except Exception as e:
+                        log.info("Error {0}, {1} occurred while calling plugin {2}".format(
+                                e.message,e.args, found_plugin
+                            ))
+                        log.info("Response is {0}".format(response))
+                        bot = event["bot"]
+                        chat_id = event["chat_data"]["chat_id"]
+                        if not response:
+                            response = "Done"
+                        interface.send_message(bot,chat_id,response)
 
     def send_event(self, event):
         '''Take incoming event'''
