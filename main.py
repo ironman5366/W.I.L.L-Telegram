@@ -6,6 +6,7 @@ import threading
 #Internal modules
 import interface
 import plugin_handler
+import parser
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -21,6 +22,9 @@ class main():
             log.info("Bot token is {0}".format(token))
             log.info("Loading plugins")
             plugin_handler.load('plugins')
+            #Initialize spacy
+            log.info("Starting spacy nlp parser")
+            parser.initialize()
             log.info("Starting the telegram interface")
             #Start the telegram bot
             interface.initialize(token)

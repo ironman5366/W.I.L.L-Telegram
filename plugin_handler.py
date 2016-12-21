@@ -1,8 +1,9 @@
-#Internal imports
+#Builtin imports
 import logging
 import os
 import sys
 import time
+import threading
 
 #External imports
 import importlib
@@ -19,19 +20,37 @@ events_queue = Queue()
 class subscriptions():
     '''Manage plugin subscriptions and events'''
     def subscriptions_thread(self):
+        '''The seperate thread that monitors the events queue'''
+        log.info("In subscriptions thread, starting loop")
         while True:
             time.sleep(0.1)
             event = events_queue.get()
-            if event == "shutdown":
+            assert type(event) == dict
+            event_command = event["command"]
+            log.info("Processing event with command {0}".format(event_command))
+            event_type = event["type"]
+            if event_type == "shutdown":
+                log.info("Shutting down the subscriptions thread")
                 break
             else:
-                pass
-            #TODO: process event
+                event_text = event["text"]
+                log.info("Event text is {0}".format(event_text))
+
     def send_event(self, event):
         '''Take incoming event'''
         assert(type(event) == "dict")
-        pass
+        assert "comamnd" in event.keys()
+        command = event["command"]
+        log.info("Putting event for command {0} in event queue".format(
+            command
+        ))
+        events_queue.put(event)
     def initialize(self):
+        '''Start the subscriptions thread'''
+        log.info("Starting plugin subscription monitoring thread")
+        s_thread = threading.Thread(target=self.subscriptions_thread)
+        s_thread.start()
+        log.info("Started subscriptions thread")
 
 def process_plugins(path):
     '''Process and import the plugins'''
@@ -61,6 +80,8 @@ def load(dir_path):
                        for module_path in os.listdir(dir_path))
     map_plugins(plugins())
     log.info("Finished parsing and loading plugins, processing subscriptions")
+    subscriptions.initialize()
+    log.info("Plugin initialization finished")
 
 def map_plugins(plugin_paths):
     log.info("Mapping plugins to processing function")

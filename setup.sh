@@ -20,7 +20,7 @@ cd W.I.L.L-telegram
 
 echo "Installing required python modules"
 
-sudo pip install -r reuqirements.txt
+sudo pip install -r requirements.txt
 
 echo -n "Please enter your bot token:"
 

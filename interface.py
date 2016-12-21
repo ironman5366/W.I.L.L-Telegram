@@ -6,10 +6,14 @@ from telegram import (ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardBu
 from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters, Job, CallbackQueryHandler)
 
 #Internal imports
+import parser
+import plugin_handler
 
 log = logging.getLogger()
 
 events = {}
+
+nlp = None
 
 help_str = '''
 Commands:
@@ -20,6 +24,8 @@ If not given a telegram command, W.I.L.L will try to interpret your command as a
 '''
 
 db = dataset.connect('sqlite://will.db')
+
+#TODO: write settings function
 
 def help(bot, update):
     '''Print help message'''
@@ -82,14 +88,12 @@ def start(bot,update):
     '''First run commands'''
     log.info("Setting up bot")
     userdata = db['userdata']
-    admin = bot.getMe()
-    admin_username = admin.username
-    log.info("Admin user is {0}, admin username is {1}".format(
-        admin, admin_username
-    ))
+    admin_username = "willbeddow"
+    log.info("Admin username is {0}".format(admin_username))
     username = update.from_user.username
     first_name = update.from_user.first_name
     chat_id = update.message.chat_id
+    #Determine whether the user is the admin user
     user_is_admin = username == admin_username
     log.info("User data is as follows: username is {0}, first_name is {1}, user_is_admin is {2}, chat_id is {3}".format(
         username,first_name,user_is_admin, chat_id
@@ -104,9 +108,6 @@ def error(bot, update, error):
     '''Log an error'''
     log.warn('Update "%s" caused error "%s"' % (update, error))
 
-def parse(bot, update, args,job_queue, chat_data, response_text, alarm_text):
-    '''Function that calls parsing'''
-    pass
 
 def initialize(bot_token):
     '''Start the bot'''
@@ -122,7 +123,7 @@ def initialize(bot_token):
     updater.dispatcher.add_handler(CallbackQueryHandler(button),pass_chat_data=True, pass_job_que=True)
     # on noncommand i.e message - echo the message on Telegram
     dp.add_handler(MessageHandler(
-        Filters.text, parse, pass_args=True, pass_job_queue=True,pass_chat_data=True
+        Filters.text, parser.parse, pass_args=True, pass_job_queue=True,pass_chat_data=True
     ))
     # log all errors
     dp.add_error_handler(error)
