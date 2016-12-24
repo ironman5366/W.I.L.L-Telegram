@@ -17,6 +17,8 @@ log = logging.getLogger()
 nlp = None
 matcher = None
 
+def check_plugins(command_data, eligible_plugins):
+    pass
 def parse(bot, update, args,job_queue, chat_data):
     '''Function that calls parsing'''
     command = update.message

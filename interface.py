@@ -105,7 +105,8 @@ def start(bot,update):
     userdata.insert(dict(
         first_name=update.from_user.first_name,
         username=update.from_user.username,
-        admin=user_is_admin
+        admin=user_is_admin,
+        default_plugin="search"
     ))
     update.message.reply_text(
         "In order to use the search functions, you need a wolframalpha api key. Please paste one in:"

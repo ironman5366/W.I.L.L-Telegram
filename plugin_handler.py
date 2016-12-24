@@ -20,52 +20,20 @@ dir_path = 'plugins'
 
 plugin_subscriptions = []
 
+command_plugins = {}
+
+default_plugin_data = None
+
 events_queue = Queue()
 
 db = dataset.connect('sqlite://will.db')
 
-user_table = db['userdata']
+user_data = db['userdata']
+
+default_plugin = user_data["default_plugin"]
 
 class subscriptions():
     '''Manage plugin subscriptions and events'''
-    def check_requirements(self, plugin, event):
-        '''Check if the event meets the requirments that the event sets'''
-        if "requirements" not in plugin.keys():
-            return True
-        plugin_requirements = plugin["required"]
-        required_categories = plugin_requirements.keys()
-        #Try to find if the db table for that category exists
-        log.info("Finding db tables for categories {0}".format(required_categories))
-        requirements_found = {}
-        for category in required_categories:
-            #Check if user has column for this kind of data in their database
-            if category in user_table.columns:
-                log.debug("Found category {0} in database for user {1}".format(
-                    category, user_table["first_name"]
-                ))
-                found_category = user_table[category]
-                category_data_type = type(found_category)
-                if category_data_type == dict:
-                    requirements_found.update({
-                        category: found_category[
-                            plugin_requirements[category]
-                        ]
-                    })
-                else:
-                    if plugin_requirements[category]:
-                        if plugin_requirements[category] != user_table[category]:
-                            return False
-                    requirements_found.udpate({
-                        category: plugin_requirements[category]
-                    })
-            else:
-                log.error("Category {0} wasn't found for user {1}".format(
-                    category, user_table["first_name"]
-                ))
-        return requirements_found
-
-
-
     def subscriptions_thread(self):
         '''The seperate thread that monitors the events queue'''
         log.info("In subscriptions thread, starting loop")
@@ -79,57 +47,54 @@ class subscriptions():
                 username = event['update'].from_user.username
                 log.info("Processing event with command {0}, user {1}".format(
                     event_command, username))
-                user_table = db.find_one(username=username)
-                if event_command == "shutdown":
-                    #If the thread tells to shut down, make sure the user is admin
-                    if user_table['admin']:
-                        log.info("Shutting down the subscriptions thread")
-                        main.shutdown()
-                        break
-                else:
-                    #Iterate through plugin descriptions and determine if they should be run
-                    found_plugin = None
-                    for plugin in plugin_subscriptions:
-                        log.debug("Parsing plugin {0}".format(plugin))
-                        required_check = self.check_requirements(plugin, event)
-                        if not required_check:
-                            continue
-                        if "required_data" in event.keys():
-                            event["required_data"] = required_check
-                        else:
-                            event.update({"required_data": required_check})
+                user_table = user_data.find_one(username=username)
+                command_lower = event_command.lower()
+                found_plugin = None
+                def check_requirements(plugin):
+                    '''Check to see if the requirements that the plugin passes are met'''
+                    if "requirements" in plugin.keys():
+                        #See if the requirements are met
+                        #The requirements should lambdas that use context data
+                        plugin_requirements = plugin["requirements"]
+                        if "db" in plugin_requirements.keys():
+                            #The plugin requirements use the userdata table
+                            for i in plugin_requirements['db']:
+                                if not i(db):
+                                    return False
+                        if "event" in plugin_requirements.keys():
+                            #The plugin requirements use the event data
+                            for i in plugin_requirements["event"]:
+                                if not i(event):
+                                    return False
+                        return True
+                    else:
+                        return True
+                def check_plugin(plugin, check_type):
+                    '''See if the data matches the plugin'''
+                    log.debug("In check_plugin with plugin {0} and check_type {1}".format(
+                        plugin, check_type
+                    ))
+                    assert(check_type == "keywords" or check_type == "command")
+                    #Check to see if the plugin subscription data matches the event.
+                    #If it does, check the plugin requirements to determine if it's eligble
+                    #If it's eligible, register it as a found_plugin
+                    if check_type == "command":
                         if "command" in plugin.keys():
-                            #If the plugin calls for the exact command passed
-                            if plugin["command"].lower() == event_command.lower():
-                                log.info("Plugin {0} calls for exact command {1}, calling plugin".format(
-                                    plugin, event_command
-                                ))
-                                found_plugin = plugin
-                                break
-                            #If the plugin is correct, call it with all the data
-                        if "verbs" in plugin.keys():
-                            plugin_verbs = set(plugin["verbs"])
-                            verb_check = event['verbs'].issuperset(plugin_verbs)
-                            if verb_check:
-                                found_plugin = plugin
-                                break
+                            if command_lower == plugin["command"].lower():
+                                if check_requirements(plugin):
+                                    found_plugin = plugin
+                    elif check_type == "keywords":
+                        if "keywords" in plugin.keys():
+                            if event["verbs"].issuperset(set(plugin["keywords"])):
+                                if check_requirements(plugin):
+                                    found_plugin = plugin
+                map(lambda plugin: check_plugin(plugin,"command"), plugin_subscriptions)
+                if not found_plugin:
+                    map(lambda plugin: check_plugin(plugin, "keywords"), plugin_subscriptions)
                     if not found_plugin:
-                        pass
-                        #TODO: specify search plugin
-                    try:
-                        log.info("Calling appropriate function")
-                        response = found_plugin["function"](event)
-                    except Exception as e:
-                        log.info("Error {0}, {1} occurred while calling plugin {2}".format(
-                                e.message,e.args, found_plugin
-                            ))
-                        log.info("Response is {0}".format(response))
-                        bot = event["bot"]
-                        chat_id = event["chat_data"]["chat_id"]
-                        if not response:
-                            response = "Done"
-                        interface.send_message(bot,chat_id,response)
-
+                        log.info("Couldn't find matching plugin, calling pre selected default plugin")
+                        default_plugin_data["function"](event)
+                found_plugin["function"](event)
     def send_event(self, event):
         '''Take incoming event'''
         assert(type(event) == "dict")
@@ -159,12 +124,17 @@ def subscribe(subscription_data):
     '''Wrapper for adding plugins to my event system'''
     assert(type(subscription_data) == dict)
     def wrap(f):
+        #Subscrbe the plugin, and while processing them pluck out the default plugin
+        #So it doesn't have to be searched for later
+        if subscription_data["name"] == default_plugin:
+            default_plugin_data = subscription_data
         log.info("Subscribing function {0} to data {1}".format(
             f, subscription_data
         ))
-        plugin_subscriptions.append(subscription_data.update({
+        subscription_data.update({
             'function': f
-        }))
+        })
+        plugin_subscriptions.append(f)
     return wrap
 
 def load(dir_path):
