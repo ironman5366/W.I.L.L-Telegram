@@ -93,7 +93,23 @@ class subscriptions():
                     interface.check_plugins(plugin_names,event)
                 else:
                     default_plugin = user_table["default_plugin"]
-                    #TODO: find this default plugin in the plugins list and run it
+                    #I wish I had a more efficient way to do this
+                    default_plugin_func = None
+                    for i in plugin_subscriptions:
+                        if i["name"] == default_plugin:
+                            default_plugin_func = i["function"]
+                            break
+                    if default_plugin_func:
+                        #Call the default plugin
+                        self.call_plugin(default_plugin_func, event)
+                    else:
+                        error_message = "Couldn't find defafult plugin {0} in plugin list {1}".format(
+                            default_plugin, plugin_subscriptions
+                        )
+                        #Send the error message to the user
+                        log.error(error_message)
+                        interface.send_message(event["bot"], event["chat_data"]["chat_id"], error_message)
+
     def send_event(self, event):
         '''Take incoming event'''
         assert(type(event) == "dict")

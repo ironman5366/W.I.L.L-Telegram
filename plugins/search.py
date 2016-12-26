@@ -1,16 +1,34 @@
 #Internal imports
 from plugin_handler import subscribe
-import logging
 
 #External imports
 import wolframalpha
 
+#Builtin imports
+import logging
+
 log = logging.getLogger()
 
-def search_wolfam():
-    pass
-    #TODO: use dataset to search the db for the wolfram api key
-
+def search_wolfram(query, api_key):
+    '''Search wolframalpha'''
+    client = wolframalpha.Client(api_key)
+    #Santize query
+    query = str(query).decode('ascii', 'ignore')
+    res = client.query(query)
+    try:
+        next_result = next(res.results).text
+        log.info("Wolfram result is {0}".format(next_result))
+        if next_result:
+            #Sanitze result
+            result = next_result.encode('ascii', 'ignore')
+            return next_result
+        else:
+            return False
+    except StopIteration:
+        log.error("StopIteration raised with wolfram query {0}".format(
+            query
+        ))
+        return False
 def is_search(event):
     '''Determine whether it's a search command'''
     command = event["command"]
@@ -32,6 +50,22 @@ def is_search(event):
     return False
 
 @subscribe({"name":"search", "check":is_search})
-def main(query):
+def main(data):
     '''Start the search'''
+    query = data["command"]
     log.info("In main search function with query {0}".format(query))
+    user_table = data["user_data"]
+    answer = False
+    if "wolframalpha" in user_table.columns:
+        wolfram_key = user_table["wolframalpha"]
+        log.debug("Wolfram key is {0} for user {1}".format(
+            wolfram_key, data["update"].from_user.username
+        ))
+        wolfram_response = search_wolfram(query, wolfram_key)
+        #If it found an answer answer will be set to that, if not it'll still be false
+        answer = wolfram_response
+    if answer:
+        return answer
+    else:
+        #TODO: google search
+        return "Couldn't find an answer on wolframalpha. Google and wikipedia search coming soon"
