@@ -1,25 +1,27 @@
-#Internal imports
+# Internal imports
 from plugin_handler import subscribe
 
-#External imports
+# External imports
 import wolframalpha
+import dataset
 
-#Builtin imports
+# Builtin imports
 import logging
 
 log = logging.getLogger()
 
+
 def search_wolfram(query, api_key):
     '''Search wolframalpha'''
     client = wolframalpha.Client(api_key)
-    #Santize query
+    # Santize query
     query = str(query).decode('ascii', 'ignore')
     res = client.query(query)
     try:
         next_result = next(res.results).text
         log.info("Wolfram result is {0}".format(next_result))
         if next_result:
-            #Sanitze result
+            # Sanitze result
             result = next_result.encode('ascii', 'ignore')
             return next_result
         else:
@@ -29,6 +31,8 @@ def search_wolfram(query, api_key):
             query
         ))
         return False
+
+
 def is_search(event):
     '''Determine whether it's a search command'''
     command = event["command"]
@@ -43,29 +47,33 @@ def is_search(event):
         "are",
         "is"
     ]
-    first_word = command.split(" ").lower()
+    first_word = command.split(" ")[0].lower()
     log.debug("First word in command is {0}".format(first_word))
     if first_word in question_words:
         return True
     return False
 
-@subscribe({"name":"search", "check":is_search})
+
+@subscribe({"name": "search", "check": is_search})
 def main(data):
     '''Start the search'''
     query = data["command"]
     log.info("In main search function with query {0}".format(query))
-    user_table = data["user_data"]
+    db = dataset.connect('sqlite:///will.db')
+    user_table = db["userdata"].find_one(username=data["update"].message.from_user.username)
+    log.info("user_table is {0}".format(user_table))
     answer = False
-    if "wolframalpha" in user_table.columns:
-        wolfram_key = user_table["wolframalpha"]
+    if "wolframalpha_key" in user_table.keys():
+        log.info("Found wolframalpha key")
+        wolfram_key = user_table["wolframalpha_key"]
         log.debug("Wolfram key is {0} for user {1}".format(
-            wolfram_key, data["update"].from_user.username
+            wolfram_key, data["update"].message.from_user.username
         ))
         wolfram_response = search_wolfram(query, wolfram_key)
-        #If it found an answer answer will be set to that, if not it'll still be false
+        # If it found an answer answer will be set to that, if not it'll still be false
         answer = wolfram_response
     if answer:
         return answer
     else:
-        #TODO: google search
+        # TODO: google search
         return "Couldn't find an answer on wolframalpha. Google and wikipedia search coming soon"

@@ -27,7 +27,7 @@ If not given a telegram command, W.I.L.L will try to interpret your command as a
 
 db = dataset.connect('sqlite:///will.db')
 
-WOLFRAM_KEY = range(1)
+WOLFRAM_KEY = None
 
 def help(bot, update):
     '''Print help message'''
@@ -49,7 +49,7 @@ def check_plugin(plugins, event):
     #Add all the possible plugins to an inline keyboard
     map(add_to_keyboard, plugins)
     plugin_choice_inline = InlineKeyboardMarkup(keyboard)
-    event["bot"].sendMessage(event["chat_data"]["chat_id"],text="Please select a plugin to run", reply_markup=plugin_choice_inline)
+    event["bot"].sendMessage(event["update"].message.chat.id,text="Please select a plugin to run", reply_markup=plugin_choice_inline)
 
 def alarm(bot, job):
     """Function to send the alarm message"""
@@ -114,38 +114,41 @@ def button(bot, update, job_queue, chat_data):
 def start(bot,update):
     '''First run commands'''
     log.info("Setting up bot")
+    db = dataset.connect('sqlite:///will.db')
     userdata = db['userdata']
     admin_username = "willbeddow"
     log.info("Admin username is {0}".format(admin_username))
-    username = update.from_user.username
-    first_name = update.from_user.first_name
+    username = update.message.from_user.username
+    first_name = update.message.from_user.first_name
     chat_id = update.message.chat_id
     #Determine whether the user is the admin user
     user_is_admin = username == admin_username
     log.info("User data is as follows: username is {0}, first_name is {1}, user_is_admin is {2}, chat_id is {3}".format(
         username,first_name,user_is_admin, chat_id
     ))
-    userdata.insert(dict(
-        first_name=update.from_user.first_name,
-        username=update.from_user.username,
+    userdata.upsert(dict(
+        first_name=update.message.from_user.first_name,
+        username=update.message.from_user.username,
         admin=user_is_admin,
         default_plugin="search"
-    ))
+    ), ['username'])
     update.message.reply_text(
         "In order to use the search functions, you need a wolframalpha api key. Please paste one in:"
     )
+    return WOLFRAM_KEY
 
 
 def accept_wolfram_key(bot, update):
     '''Store wolfram key given in setup'''
     #If I want to add more steps to setup, add them here
-    username = update.from_user.username
+    username = update.message.from_user.username
+    db = dataset.connect('sqlite:///will.db')
     userdata = db['userdata']
-    user = userdata.find_one(username=username)
-    if "api_keys" in user.columns:
-        user["api_keys"].update({
-            "wolfram": update.message
-        })
+    data = dict(username=username, wolfram_key=update.message)
+    userdata.update(data, ['username'])
+    log.info("In accept wolfram, table is {0}".format(
+        userdata
+    ))
 
 def error(bot, update, error):
     '''Log an error'''
@@ -161,25 +164,28 @@ def initialize(bot_token):
 
     # Get the dispatcher to register handlers
     dp = updater.dispatcher
+    log.info(type(WOLFRAM_KEY))
     #Use regex to match strings of text that look like wolfram keys (long alphanumeric strings)
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
 
         states={
-            WOLFRAM_KEY: [RegexHandler('^[a-zA-Z0-9]{6,}$', accept_wolfram_key)]
+            #WOLFRAM_KEY:
+            WOLFRAM_KEY : [RegexHandler('^[A-Z0-9]{6}-[A-Z0-9]{10}$', accept_wolfram_key)]
         },
 
         fallbacks=[CommandHandler('cancel', cancel)]
     )
+
     # on different commands - answer in Telegram
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(CommandHandler("help", help))
-
-    updater.dispatcher.add_handler(CallbackQueryHandler(button),pass_chat_data=True, pass_job_que=True)
+    dp.add_handler(CallbackQueryHandler(button,pass_chat_data=True, pass_job_queue=True))
     # on noncommand i.e message - echo the message on Telegram
     dp.add_handler(MessageHandler(
-        Filters.text, parser.parse, pass_args=True, pass_job_queue=True,pass_chat_data=True
+        Filters.text, parser.parse,pass_job_queue=True,pass_chat_data=True
     ))
+    dp.add_handler(conv_handler)
     # log all errors
     dp.add_error_handler(error)
 

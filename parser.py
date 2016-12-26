@@ -10,17 +10,16 @@ from spacy.matcher import Matcher
 #Internal imports
 import plugin_handler
 
-db = dataset.connect('sqlite:///will.db')
-
 log = logging.getLogger()
 
 nlp = None
 matcher = None
 
-def parse(bot, update, args,job_queue, chat_data):
+def parse(bot, update ,job_queue, chat_data):
     '''Function that calls parsing'''
-    command = update.message
-    username = update.from_user.username
+    db = dataset.connect('sqlite:///will.db')
+    command = update.message.text
+    username = update.message.from_user.username
     log.info(
         "Parsing command {0} from user {1}".format(
             command, username
@@ -29,10 +28,10 @@ def parse(bot, update, args,job_queue, chat_data):
     #Pull user data from database
     userdata_table = db['userdata']
     user = userdata_table.find_one(username=username)
-    user_first_name = user["firstname"]
+    user_first_name = user["first_name"]
     #Parse the command in spacy
     log.info("Running command through nlp")
-    doc = nlp(command)
+    doc = nlp(unicode(command))
     verbs = set()
     log.info("Parsing through dependencies")
     #Use synactic dependencies to look at the words
@@ -51,7 +50,6 @@ def parse(bot, update, args,job_queue, chat_data):
         "command": command,
         "bot": bot,
         "update": update,
-        "args": args,
         "job_queue": job_queue,
         "chat_data": chat_data,
         "verbs": verbs,

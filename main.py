@@ -12,9 +12,13 @@ import parser
 import dataset
 
 db = dataset.connect('sqlite:///will.db')
+#
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    filemode='w',filename="will.log")
 
-logging.basicConfig(level=logging.DEBUG,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',filename="will.log")
+ch = logging.StreamHandler(sys.stdout)
+ch.setLevel(logging.INFO)
+
 #TODO: get wolframalpha stuff
 
 def shutdown():
@@ -27,7 +31,7 @@ class main():
         '''Call starting functions'''
         #Bot token should be held in a file named token.txt
         if "public_keys" in db.tables:
-            token = db["public_keys"]["bot_token"]
+            token = db["public_keys"].find_one(kind="telegram")["key"]
             log.info("Bot token is {0}".format(token))
             log.info("Loading plugins")
             plugin_handler.load('plugins')
@@ -46,5 +50,6 @@ class main():
             )
 if __name__ == "__main__":
     log = logging.getLogger()
+    log.addHandler(ch)
     log.info("Starting W.I.L.L")
     main()

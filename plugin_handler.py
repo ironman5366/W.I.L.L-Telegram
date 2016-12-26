@@ -28,8 +28,6 @@ events_queue = Queue()
 
 db = dataset.connect('sqlite:///will.db')
 
-user_data = db['userdata']
-
 class subscriptions():
     '''Manage plugin subscriptions and events'''
     def call_plugin(self, plugin_function, event):
@@ -44,11 +42,13 @@ class subscriptions():
         response = str(response)
         log.info("Plugin response is {0}".format(response))
         #Send the message
-        interface.send_message(event["bot"],event["chat_data"]["chat_id"],response)
+        interface.send_message(event["bot"],event["update"].message.chat.id,response)
 
     def subscriptions_thread(self):
         '''The seperate thread that monitors the events queue'''
         log.info("In subscriptions thread, starting loop")
+        db = dataset.connect('sqlite:///will.db')
+        user_data = db["userdata"]
         while True:
             time.sleep(0.1)
             #If the queue is empty, pass
@@ -56,16 +56,20 @@ class subscriptions():
                 event = events_queue.get()
                 assert type(event) == dict
                 event_command = event["command"]
-                username = event['update'].from_user.username
+                username = event['update'].message.from_user.username
                 log.info("Processing event with command {0}, user {1}".format(
                     event_command, username))
                 user_table = user_data.find_one(username=username)
+                event.update({"user_table":user_table})
                 command_lower = event_command.lower()
                 found_plugins = []
                 def plugin_check(plugin):
                     '''Run the plugins check function to see if it's true'''
-                    log.debug("Parsing plugin {0}".format(plugin))
-                    if plugin["check"]():
+                    log.debug(plugin)
+                    check_function = plugin["check"]
+                    log.debug("Running check_function {0} on plugin {1}".format(
+                        check_function, plugin))
+                    if check_function(event):
                         log.info("Plugin {0} matches command {1}".format(
                             plugin, event_command
                         ))
@@ -112,8 +116,11 @@ class subscriptions():
 
     def send_event(self, event):
         '''Take incoming event'''
-        assert(type(event) == "dict")
-        assert "comamnd" in event.keys()
+        log.debug("Received event {0} of type {1}".format(
+            event, type(event)
+        ))
+        assert(type(event) == dict)
+        assert "command" in event.keys()
         command = event["command"]
         log.info("Putting event for command {0} in event queue".format(
             command
@@ -148,7 +155,7 @@ def subscribe(subscription_data):
         subscription_data.update({
             'function': f
         })
-        plugin_subscriptions.append(f)
+        plugin_subscriptions.append(subscription_data)
     return wrap
 
 def load(dir_path):
