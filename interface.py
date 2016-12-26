@@ -9,6 +9,7 @@ from telegram.ext import (
 
 #Internal imports
 import parser
+import plugin_handler
 
 log = logging.getLogger()
 
@@ -35,6 +36,20 @@ def help(bot, update):
 def send_message(bot, chat_id, message_text):
     '''Send a text message'''
     bot.sendMessage(chat_id, message_text)
+
+def check_plugin(plugins, event):
+    '''Check which plugin the user wants to run'''
+    #Use the in place button conversation handler
+    keyboard = []
+    def add_to_keyboard(plugin):
+        keyboard.append(
+            InlineKeyboardButton(plugin["name"], callback_data=
+            {"type": "plugin_selection", "event": event, "plugin_function": plugin["function"], "name": plugin["name"]})
+            )
+    #Add all the possible plugins to an inline keyboard
+    map(add_to_keyboard, plugins)
+    plugin_choice_inline = InlineKeyboardMarkup(keyboard)
+    event["bot"].sendMessage(event["chat_data"]["chat_id"],text="Please select a plugin to run", reply_markup=plugin_choice_inline)
 
 def alarm(bot, job):
     """Function to send the alarm message"""
@@ -87,6 +102,14 @@ def button(bot, update, job_queue, chat_data):
         chat_data["job"] = job
         job_queue.put(job)
         update.message.reply_text("Snoozed")
+    elif data_type == "plugin_selection":
+        event_data = data['event']
+        plugin_function = data["function"]
+        log.info("Calling plugin {0}".format(
+            data["plugin_name"]
+        ))
+        #Call the plugin
+        plugin_handler.subscriptions().call_plugin(plugin_function,event_data)
 
 def start(bot,update):
     '''First run commands'''
@@ -111,6 +134,7 @@ def start(bot,update):
     update.message.reply_text(
         "In order to use the search functions, you need a wolframalpha api key. Please paste one in:"
     )
+
 
 def accept_wolfram_key(bot, update):
     '''Store wolfram key given in setup'''

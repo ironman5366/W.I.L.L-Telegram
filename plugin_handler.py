@@ -32,6 +32,8 @@ user_data = db['userdata']
 
 default_plugin = user_data["default_plugin"]
 
+#TODO: add a run plugin function and call it
+
 class subscriptions():
     '''Manage plugin subscriptions and events'''
     def subscriptions_thread(self):
@@ -49,52 +51,29 @@ class subscriptions():
                     event_command, username))
                 user_table = user_data.find_one(username=username)
                 command_lower = event_command.lower()
-                found_plugin = None
-                def check_requirements(plugin):
-                    '''Check to see if the requirements that the plugin passes are met'''
-                    if "requirements" in plugin.keys():
-                        #See if the requirements are met
-                        #The requirements should lambdas that use context data
-                        plugin_requirements = plugin["requirements"]
-                        if "db" in plugin_requirements.keys():
-                            #The plugin requirements use the userdata table
-                            for i in plugin_requirements['db']:
-                                if not i(db):
-                                    return False
-                        if "event" in plugin_requirements.keys():
-                            #The plugin requirements use the event data
-                            for i in plugin_requirements["event"]:
-                                if not i(event):
-                                    return False
-                        return True
-                    else:
-                        return True
-                def check_plugin(plugin, check_type):
-                    '''See if the data matches the plugin'''
-                    log.debug("In check_plugin with plugin {0} and check_type {1}".format(
-                        plugin, check_type
-                    ))
-                    assert(check_type == "keywords" or check_type == "command")
-                    #Check to see if the plugin subscription data matches the event.
-                    #If it does, check the plugin requirements to determine if it's eligble
-                    #If it's eligible, register it as a found_plugin
-                    if check_type == "command":
-                        if "command" in plugin.keys():
-                            if command_lower == plugin["command"].lower():
-                                if check_requirements(plugin):
-                                    found_plugin = plugin
-                    elif check_type == "keywords":
-                        if "keywords" in plugin.keys():
-                            if event["verbs"].issuperset(set(plugin["keywords"])):
-                                if check_requirements(plugin):
-                                    found_plugin = plugin
-                map(lambda plugin: check_plugin(plugin,"command"), plugin_subscriptions)
-                if not found_plugin:
-                    map(lambda plugin: check_plugin(plugin, "keywords"), plugin_subscriptions)
-                    if not found_plugin:
-                        log.info("Couldn't find matching plugin, calling pre selected default plugin")
-                        default_plugin_data["function"](event)
-                found_plugin["function"](event)
+                found_plugins = []
+                def plugin_check(plugin):
+                    '''Run the plugins check function to see if it's true'''
+                    log.debug("Parsing plugin {0}".format(plugin))
+                    if plugin["check"]():
+                        log.info("Plugin {0} matches command {1}".format(
+                            plugin, event_command
+                        ))
+                        found_plugins.append(plugin)
+                #Map the subscribed plugins to the function that runs their check functions
+                map(plugin_check, plugin_subscriptions)
+                #How many plugins match the command data
+                plugin_len = len(found_plugins)
+                if plugin_len == 1:
+                    plugin = found_plugins[0]
+                    plugin_function = plugin['function']
+                elif plugin_len > 1:
+                    #Ask the user which one they want to run
+                    plugin_names = {}
+                    map(lambda plugin_name: plugin_names.update(
+                        {"name": plugin_name["name"],"function":plugin_name["function"]
+                                                                 }))
+                    #TODO: write interface code asking the user about this
     def send_event(self, event):
         '''Take incoming event'''
         assert(type(event) == "dict")
