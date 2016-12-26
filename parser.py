@@ -10,7 +10,7 @@ from spacy.matcher import Matcher
 #Internal imports
 import plugin_handler
 
-db = dataset.connect('sqlite://will.db')
+db = dataset.connect('sqlite:///will.db')
 
 log = logging.getLogger()
 

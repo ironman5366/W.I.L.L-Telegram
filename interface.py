@@ -25,7 +25,7 @@ Commands:
 If not given a telegram command, W.I.L.L will try to interpret your command as a personal assistant
 '''
 
-db = dataset.connect('sqlite://will.db')
+db = dataset.connect('sqlite:///will.db')
 
 WOLFRAM_KEY = range(1)
 

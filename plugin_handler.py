@@ -26,7 +26,7 @@ default_plugin_data = None
 
 events_queue = Queue()
 
-db = dataset.connect('sqlite://will.db')
+db = dataset.connect('sqlite:///will.db')
 
 user_data = db['userdata']
 
@@ -119,6 +119,7 @@ class subscriptions():
             command
         ))
         events_queue.put(event)
+
     def initialize(self):
         '''Start the subscriptions thread'''
         log.info("Starting plugin subscription monitoring thread")
@@ -157,7 +158,7 @@ def load(dir_path):
                        for module_path in os.listdir(dir_path))
     map_plugins(plugins())
     log.info("Finished parsing and loading plugins, processing subscriptions")
-    subscriptions.initialize()
+    subscriptions().initialize()
     log.info("Plugin initialization finished")
 
 def map_plugins(plugin_paths):

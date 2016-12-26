@@ -8,8 +8,13 @@ import interface
 import plugin_handler
 import parser
 
+#External imports
+import dataset
+
+db = dataset.connect('sqlite:///will.db')
+
 logging.basicConfig(level=logging.DEBUG,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',filename="will.log")
 #TODO: get wolframalpha stuff
 
 def shutdown():
@@ -21,8 +26,8 @@ class main():
     def __init__(self):
         '''Call starting functions'''
         #Bot token should be held in a file named token.txt
-        if os.path.isfile("token.txt"):
-            token = open('token.txt').read()
+        if "public_keys" in db.tables:
+            token = db["public_keys"]["bot_token"]
             log.info("Bot token is {0}".format(token))
             log.info("Loading plugins")
             plugin_handler.load('plugins')
@@ -35,8 +40,8 @@ class main():
         else:
             log.error(
                 '''
-                Couldn't find the file containing the api token.
-                Please create a file named token.txt in /usr/local/W.I.L.L-Telegram containing the token.
+                Couldn't find the database table containing the api token.
+                Please create a public keys table that contains the telegram bot token under bot_token
                 '''
             )
 if __name__ == "__main__":
