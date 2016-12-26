@@ -30,12 +30,22 @@ db = dataset.connect('sqlite://will.db')
 
 user_data = db['userdata']
 
-default_plugin = user_data["default_plugin"]
-
-#TODO: add a run plugin function and call it
-
 class subscriptions():
     '''Manage plugin subscriptions and events'''
+    def call_plugin(self, plugin_function, event):
+        '''Call the plugin'''
+        log.debug("Calling function {0} with event data {1}".format(
+            plugin_function, event
+        ))
+        #Call the plugin. If there's a response, return it. If there's not, return "Done"
+        response = plugin_function(event)
+        if not response:
+            response = "Done"
+        response = str(response)
+        log.info("Plugin response is {0}".format(response))
+        #Send the message
+        interface.send_message(event["bot"],event["chat_data"]["chat_id"],response)
+
     def subscriptions_thread(self):
         '''The seperate thread that monitors the events queue'''
         log.info("In subscriptions thread, starting loop")
@@ -66,14 +76,24 @@ class subscriptions():
                 plugin_len = len(found_plugins)
                 if plugin_len == 1:
                     plugin = found_plugins[0]
+                    log.info("Running plugin {0}".format(plugin))
                     plugin_function = plugin['function']
+                    #Call the plugin
+                    self.call_plugin(plugin_function,event)
                 elif plugin_len > 1:
                     #Ask the user which one they want to run
                     plugin_names = {}
                     map(lambda plugin_name: plugin_names.update(
                         {"name": plugin_name["name"],"function":plugin_name["function"]
                                                                  }))
-                    #TODO: write interface code asking the user about this
+                    #Check which plugin the user wants to run and then run that
+                    log.info("Checking which plugin the user wants to run, found plugins {0}".format(
+                        plugin_names
+                    ))
+                    interface.check_plugins(plugin_names,event)
+                else:
+                    default_plugin = user_table["default_plugin"]
+                    #TODO: find this default plugin in the plugins list and run it
     def send_event(self, event):
         '''Take incoming event'''
         assert(type(event) == "dict")
@@ -105,8 +125,6 @@ def subscribe(subscription_data):
     def wrap(f):
         #Subscrbe the plugin, and while processing them pluck out the default plugin
         #So it doesn't have to be searched for later
-        if subscription_data["name"] == default_plugin:
-            default_plugin_data = subscription_data
         log.info("Subscribing function {0} to data {1}".format(
             f, subscription_data
         ))
