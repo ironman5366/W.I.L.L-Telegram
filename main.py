@@ -19,8 +19,6 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(leve
 ch = logging.StreamHandler(sys.stdout)
 ch.setLevel(logging.INFO)
 
-#TODO: get wolframalpha stuff
-
 def shutdown():
     log.info("Shutting down W.I.L.L")
     sys.exit()

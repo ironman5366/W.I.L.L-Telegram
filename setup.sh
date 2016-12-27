@@ -22,15 +22,7 @@ echo "Installing required python modules"
 
 sudo pip install -r requirements.txt
 
-echo -n "Please enter your bot token:"
-
-read token
-
-touch token.txt
-
-echo token >> token.txt
-
-echo "Saved bot token"
+python dbsetup.py
 
 echo "Setting up W.I.L.L as service"
 
