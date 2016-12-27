@@ -31,6 +31,8 @@ def search_wolfram(query, api_key):
             query
         ))
         return False
+    except AttributeError:
+        return False
 
 
 def is_search(event):

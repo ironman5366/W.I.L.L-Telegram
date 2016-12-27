@@ -63,6 +63,7 @@ class subscriptions():
                 event.update({"user_table":user_table})
                 command_lower = event_command.lower()
                 found_plugins = []
+                default_plugin_name = user_table["default_plugin"]
                 def plugin_check(plugin):
                     '''Run the plugins check function to see if it's true'''
                     log.debug(plugin)
@@ -73,7 +74,8 @@ class subscriptions():
                         log.info("Plugin {0} matches command {1}".format(
                             plugin, event_command
                         ))
-                        found_plugins.append(plugin)
+                        if plugin["name"] != default_plugin_name:
+                            found_plugins.append(plugin)
                 #Map the subscribed plugins to the function that runs their check functions
                 map(plugin_check, plugin_subscriptions)
                 #How many plugins match the command data
