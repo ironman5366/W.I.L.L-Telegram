@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 #Standalone setup script for W.I.L.L
+if ! dpkg -s python; then
+    echo "python not installed, installing"
+    sudo apt-get install python
+fi
 if ! dpkg -s python-pip; then
     echo "pip not installed, installing"
     sudo apt-get install pip
@@ -8,6 +12,11 @@ fi
 if ! dpkg -s git; then
     echo "git not installed, installing"
     sudo apt-get install git
+fi
+
+if ! dpkg -s upstart; then
+    echo "upstart not installed, installing"
+    sudo apt-get install upstart
 fi
 
 cd /usr/local
