@@ -4,7 +4,7 @@ import logging
 import dataset
 from telegram import (ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup)
 from telegram.ext import (
-    Updater, CommandHandler, MessageHandler, Filters, Job, CallbackQueryHandler, RegexHandler, ConversationHandler
+    Updater, CommandHandler, MessageHandler, Filters, Job, CallbackQueryHandler, RegexHandler, ConversationHandler, Handler
 )
 
 #Internal imports
@@ -25,9 +25,9 @@ Commands:
 If not given a telegram command, W.I.L.L will try to interpret your command as a personal assistant
 '''
 
-db = dataset.connect('sqlite:///will.db')
+#TODO: add a /settings function!
 
-WOLFRAM_KEY = None
+db = dataset.connect('sqlite:///will.db')
 
 def help(bot, update):
     '''Print help message'''
@@ -135,7 +135,6 @@ def start(bot,update):
     update.message.reply_text(
         "In order to use the search functions, you need a wolframalpha api key. Please paste one in:"
     )
-    return WOLFRAM_KEY
 
 
 def accept_wolfram_key(bot, update):
@@ -144,8 +143,8 @@ def accept_wolfram_key(bot, update):
     username = update.message.from_user.username
     db = dataset.connect('sqlite:///will.db')
     userdata = db['userdata']
-    data = dict(username=username, wolfram_key=update.message)
-    userdata.update(data, ['username'])
+    data = dict(username=username, wolfram_key=update.message.text)
+    userdata.upsert(data, ['username'])
     log.info("In accept wolfram, table is {0}".format(
         userdata
     ))
@@ -164,28 +163,18 @@ def initialize(bot_token):
 
     # Get the dispatcher to register handlers
     dp = updater.dispatcher
-    log.info(type(WOLFRAM_KEY))
     #Use regex to match strings of text that look like wolfram keys (long alphanumeric strings)
-    conv_handler = ConversationHandler(
-        entry_points=[CommandHandler('start', start)],
-
-        states={
-            #WOLFRAM_KEY:
-            WOLFRAM_KEY : [RegexHandler('^[A-Z0-9]{6}-[A-Z0-9]{10}$', accept_wolfram_key)]
-        },
-
-        fallbacks=[CommandHandler('cancel', cancel)]
-    )
 
     # on different commands - answer in Telegram
+    dp.add_handler(RegexHandler('[\s\S]* [\s\S]*', parser.parse,pass_job_queue=True, pass_chat_data=True))
+    #dp.add_handler(MessageHandler(Filters.text, parser.parse, pass_job_queue=True, pass_chat_data=True))
+    dp.add_handler(RegexHandler('^[A-Z0-9]{6}-[A-Z0-9]{10}$', accept_wolfram_key))
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(CommandHandler("help", help))
-    dp.add_handler(CallbackQueryHandler(button,pass_chat_data=True, pass_job_queue=True))
-    # on noncommand i.e message - echo the message on Telegram
-    dp.add_handler(MessageHandler(
-        Filters.text, parser.parse,pass_job_queue=True,pass_chat_data=True
-    ))
-    dp.add_handler(conv_handler)
+    dp.add_handler(CallbackQueryHandler(button, pass_chat_data=True, pass_job_queue=True))
+    #dp.add_handler(MessageHandler(
+    #    Filters.text, parser.parse,pass_job_queue=True,pass_chat_data=True
+    #))
     # log all errors
     dp.add_error_handler(error)
 

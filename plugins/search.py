@@ -61,11 +61,10 @@ def main(data):
     log.info("In main search function with query {0}".format(query))
     db = dataset.connect('sqlite:///will.db')
     user_table = db["userdata"].find_one(username=data["update"].message.from_user.username)
-    log.info("user_table is {0}".format(user_table))
     answer = False
-    if "wolframalpha_key" in user_table.keys():
-        log.info("Found wolframalpha key")
-        wolfram_key = user_table["wolframalpha_key"]
+    if "wolfram_key" in user_table.keys():
+        log.info("Found wolframa key")
+        wolfram_key = user_table["wolfram_key"]
         log.debug("Wolfram key is {0} for user {1}".format(
             wolfram_key, data["update"].message.from_user.username
         ))
