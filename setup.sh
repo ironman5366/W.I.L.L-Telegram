@@ -16,7 +16,7 @@ echo "Downloading latest version of W.I.L.L"
 
 git clone "https://github.com/ironman5366/W.I.L.L-Telegram"
 
-cd W.I.L.L-telegram
+cd W.I.L.L-Telegram
 
 echo "Installing required python modules"
 
