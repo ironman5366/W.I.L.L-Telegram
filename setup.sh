@@ -6,7 +6,7 @@ if ! dpkg -s python; then
 fi
 if ! dpkg -s python-pip; then
     echo "pip not installed, installing"
-    sudo apt-get install pip
+    sudo apt-get install python-pip
 fi
 
 if ! dpkg -s git; then
